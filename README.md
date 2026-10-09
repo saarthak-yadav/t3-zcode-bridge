@@ -105,7 +105,7 @@ Synthetic fixtures contain no user data. Local settings backups and credentials 
 
 ## Publishing and upstream adoption
 
-See [UPSTREAM.md](UPSTREAM.md) for the release roadmap and proposed registry/vendor adoption route. Public source availability does not imply official endorsement or ACP Registry acceptance.
+The [ACP Registry submission](https://github.com/agentclientprotocol/registry/pull/666) and [Z.ai adoption proposal](https://github.com/zai-org/feedback/issues/585#issuecomment-6073852056) are open for review. See [UPSTREAM.md](UPSTREAM.md) for the remaining roadmap. Public source availability does not imply official endorsement or ACP Registry acceptance.
 
 ## License
 

@@ -28,10 +28,18 @@ Sources:
 - Extend the GitHub preview package/checksum and automated tests into a maintained distribution/update policy. npm registry publication is not configured.
 - Prepare a registry entry with distribution, semantic version, license URL and required monochrome SVG icon; run registry schema and protocol/auth checks before submitting.
 
-## Draft proposal for maintainers (not sent)
+## Adoption proposal
 
 We have a local ACP v1 adapter driving ZCode's bundled `app-server --stdio`, verified with ZCode Desktop 3.14.4 / CLI 0.16.9 and T3 Code 0.0.45. It uses the native agent harness and existing Coding Plan configuration, with streaming, permission decisions, model selection, cancellation and process-restart session resume. Version 0.2 adds image, PDF, embedded text and file resource translation, including private staging for binary resources. Live checks verify image and document comprehension; file-link conversion and attachment limits have automated coverage.
 
 We would like to agree on a supported native protocol/auth boundary and ownership for an ACP bridge, then distribute it through the ACP Registry for generic T3/editor compatibility. Can Z.ai adopt or endorse this direction, and what API/CLI distribution and authentication flow should the bridge target? For T3, does the current generic ACP provider cover this integration, or is a narrowly scoped compatibility change needed?
 
-The owner authorized a public GitHub repository and preview release. No maintainer proposal, registry entry or upstream pull request has been submitted.
+## Submission status
+
+- Registry PR: https://github.com/agentclientprotocol/registry/pull/666 (open; awaiting maintainer review). The entry targets macOS Apple Silicon and the v0.3.0 checksum-pinned archive.
+- Z.ai adoption proposal: https://github.com/zai-org/feedback/issues/585#issuecomment-6073852056
+- Release: https://github.com/saarthak-yadav/t3-zcode-bridge/releases/tag/v0.3.0
+
+Registry schema, icon and new release URL validation passed. The full registry dry-run validated 43 entries with existing URLs skipped. Its fresh-home auth checker downloaded/verified the public archive and reported `Auth OK: terminal_setup(terminal)`. Registry checks ran natively on macOS because the Docker daemon was unavailable. All 13 bridge tests passed in release CI on macOS/Linux with Node 24/26.
+
+Submission does not imply registry acceptance or official Z.ai endorsement. No T3-specific upstream code changes or maintainer discussion are needed for this submission.

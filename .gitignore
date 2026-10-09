@@ -1,0 +1,9 @@
+node_modules/
+t3-settings.before.json
+*.log
+.env
+.env.*
+credentials.json
+*.tgz
+SHA256SUMS
+release-notes.md

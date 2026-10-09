@@ -1,0 +1,34 @@
+{
+  "name": "t3-zcode-bridge",
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "smoke": "node smoke.mjs",
+    "smoke:attachments": "node attachments-smoke.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "description": "Experimental ACP v1 bridge for the ZCode native agent, with T3 Code compatibility",
+  "bin": {
+    "zcode-acp": "bridge.mjs"
+  },
+  "files": [
+    "bridge.mjs",
+    "content.mjs",
+    "zcode-acp",
+    "README.md",
+    "UPSTREAM.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saarthak-yadav/t3-zcode-bridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/saarthak-yadav/t3-zcode-bridge/issues"
+  },
+  "homepage": "https://github.com/saarthak-yadav/t3-zcode-bridge#readme",
+  "license": "MIT"
+}

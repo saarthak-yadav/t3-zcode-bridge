@@ -1,0 +1,16 @@
+#!/bin/sh
+# Compatibility launcher for T3 builds that only expose the Grok ACP driver.
+bridge_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || exit 1
+if [ -n "${ZCODE_NODE_BINARY:-}" ]; then
+  node_binary=$ZCODE_NODE_BINARY
+elif command -v node >/dev/null 2>&1; then
+  node_binary=$(command -v node)
+elif [ -x /opt/homebrew/bin/node ]; then
+  node_binary=/opt/homebrew/bin/node
+elif [ -x /usr/local/bin/node ]; then
+  node_binary=/usr/local/bin/node
+else
+  echo 'Node.js 24 or newer is required. Add node to PATH or set ZCODE_NODE_BINARY.' >&2
+  exit 1
+fi
+exec "$node_binary" "$bridge_dir/bridge.mjs" --legacy-grok "$@"

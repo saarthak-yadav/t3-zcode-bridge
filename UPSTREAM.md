@@ -1,6 +1,6 @@
 # Making the ZCode bridge distributable and official
 
-Checked upstream documentation on 2026-10-09. Version 0.2.0 is an experimental GitHub preview release under MIT. It is not yet suitable for ACP Registry submission or official vendor support.
+Checked upstream documentation on 2026-10-09. Version 0.3.0 adds terminal API-key setup and initialization without credentials for a macOS ACP Registry submission. It remains an independent experimental bridge; vendor adoption and registry acceptance require maintainer review.
 
 ## Recommended route
 
@@ -20,8 +20,8 @@ Sources:
 
 - Discover a supported ZCode CLI installation on each supported runtime platform, or use a vendor-approved CLI distribution. The Node/source launcher paths are now portable; the default ZCode resource location still targets macOS.
 - Keep releases restricted to source, documentation and synthetic fixtures. MIT and `saarthak-yadav/t3-zcode-bridge` were selected by the owner; settings backups and credentials are excluded.
-- Replace the legacy account-config dependency with a documented ZCode credential API or supported login integration. Implement a real Agent Auth or Terminal Auth flow; the current existing-account check does not meet the registry's onboarding requirement.
-- Add a supported ZCode protocol/CLI version range and clear compatibility failures. Preserve real semantic version reporting for generic ACP, and isolate the Grok-specific version probe behavior to legacy compatibility mode.
+- Replace the legacy account-config dependency with a documented ZCode credential API or supported login integration. Terminal API-key setup is now implemented. Vendor-supported OAuth/credential integration remains future work.
+- Extend compatibility verification beyond the pinned native CLI 0.16.9. Preserve real semantic version reporting for generic ACP, and isolate the Grok-specific version probe behavior to legacy compatibility mode.
 - Verify generic ACP v1 integration on current T3; plan ACP v2 migration independently. Test cold start, auth failure, model switching, permissions, cancellation, native resume, image-only prompts, documents, binary files and missing/oversized files on supported platforms.
 - Preserve structured questions via supported elicitation, implement session listing/import and context usage where the native API allows, and accurately advertise only implemented capabilities.
 - Define attachment storage retention and deletion, and show clearly when a file is referenced rather than directly understood. Validate MIME/content and native media compatibility; enforce transport size bounds before parsing the full JSON line.

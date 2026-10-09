@@ -1,27 +1,32 @@
 #!/usr/bin/env node
+import { readAccounts, setup } from './auth.mjs';
 import { convertPrompt } from './content.mjs';
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
 import { readFileSync, existsSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
+import { promisify } from 'node:util';
 import { pathToFileURL } from 'node:url';
 
 const resources = process.env.ZCODE_RESOURCES || '/Applications/ZCode.app/Contents/Resources';
 const builtinPath = resolve(process.env.ZCODE_BUILTIN_PROVIDER_CONFIG_FILE || `${resources}/config/provider/zcode-builtin.json`);
 const userRoot = `${process.env.ZCODE_DATA_BASE_DIR || homedir()}/.zcode/v2`;
 const legacyPath = process.env.ZCODE_BRIDGE_ACCOUNT_CONFIG || `${userRoot}/config.json`;
+const bridgeAccountPath = process.env.ZCODE_BRIDGE_CREDENTIALS_FILE || `${userRoot}/t3-bridge-account.json`;
+const authMethods = [{id:'terminal_setup',name:'Configure Coding Plan API key',type:'terminal',args:['--setup']}];
 const cliPath = process.env.ZCODE_CLI_PATH || `${resources}/glm/zcode.cjs`;
 const modes = ['build', 'edit', 'auto', 'yolo', 'plan'].map(id => ({id, name: ({build:'Supervised',edit:'Accept edits',auto:'Auto',yolo:'Full access',plan:'Plan'})[id]}));
 
 // Read existing account configuration on demand. Credentials never enter ACP or logs.
 function accounts() {
-  const legacy = JSON.parse(readFileSync(legacyPath, 'utf8'));
-  const release = JSON.parse(readFileSync(builtinPath, 'utf8'));
+  const legacy = existsSync(legacyPath)?JSON.parse(readFileSync(legacyPath, 'utf8')):{};
+  const release = existsSync(builtinPath)?JSON.parse(readFileSync(builtinPath, 'utf8')):{config:{providerConfigRules:{providerRules:[]}}};
+  const own=readAccounts(bridgeAccountPath);
   const found = [];
   for (const family of ['zai', 'bigmodel']) {
-    const source = legacy.provider?.[`builtin:${family}-coding-plan`];
+    const source = own[family]?.apiKey?{enabled:true,options:own[family]}:legacy.provider?.[`builtin:${family}-coding-plan`];
     if (!source?.enabled || !source.options?.apiKey) continue;
     const providerId = `account:${family}-individual-coding-plan`;
     const rule = release.config.providerConfigRules.providerRules.find(x => x.providerId === providerId);
@@ -29,12 +34,17 @@ function accounts() {
   }
   return {release, found};
 }
+function requireAccount() {
+  if(!accounts().found.length){const e=new Error('Coding Plan authentication required. Run zcode-acp --setup.');e.code=-32000;e.data={authMethods};throw e;}
+}
 function modelCatalog() {
-  return accounts().found.flatMap(a => a.modelIds.map(modelId => ({modelId:`${a.providerId}/${modelId}`,name:modelId,description:a.name})));
+  const {release,found}=accounts();
+  const available=found.length?found:release.config.providerConfigRules.providerRules.filter(r=>['account:zai-individual-coding-plan','account:bigmodel-individual-coding-plan'].includes(r.providerId)).map(r=>({providerId:r.providerId,modelIds:r.config.builtinModelIds,name:r.providerName}));
+  return available.flatMap(a => a.modelIds.map(modelId => ({modelId:`${a.providerId}/${modelId}`,name:modelId,description:a.name}))); 
 }
 function defaultModel() {
   const models = modelCatalog();
-  if (!models.length) throw new Error('No enabled ZCode Coding Plan account. Connect a Coding Plan in ZCode first.');
+  if (!models.length) throw new Error('No ZCode models discovered. Install ZCode Desktop or configure its resource paths.');
   return models.find(m => m.modelId.endsWith('/GLM-5.3-Flash'))?.modelId || models[0].modelId;
 }
 export function selection(modelId, reasoningLevel='high') {
@@ -84,7 +94,12 @@ export class Bridge {
   }
   async startChild(cwd) {
     if (this.child) return;
+    requireAccount();
     if (!existsSync(cliPath)) throw new Error(`ZCode CLI not found: ${cliPath}`);
+    let version;
+    try {version=(await promisify(execFile)(process.execPath,[cliPath,'--version'],{timeout:10000})).stdout;}
+    catch {throw new Error('Could not check ZCode CLI version');}
+    if(!/\b0\.16\.9\b/.test(version))throw new Error('This bridge supports ZCode CLI 0.16.9. Other versions require compatibility verification.');
     this.child=spawn(process.execPath,[cliPath,'app-server','--stdio'],{cwd,env:{...process.env,ZCODE_BUILTIN_PROVIDER_CONFIG_FILE:builtinPath,ZCODE_PERSONAL_PROVIDER_CONFIG_FILE:`${userRoot}/provider_config.json`},stdio:['pipe','pipe','pipe']});
     // Native diagnostics can contain request headers. Do not forward them to T3.
     this.child.stderr.on('data',()=>{});
@@ -176,11 +191,14 @@ export class Bridge {
   async handle(method,p={}) {
     if(method==='initialize') {
       const models=modelCatalog();
-      return {protocolVersion:1,agentInfo:{name:'zcode-t3-bridge',title:'ZCode',version:'0.2.0'},authMethods:[{id:'cached_token',name:'Existing ZCode Coding Plan'}],
+      return {protocolVersion:1,agentInfo:{name:'zcode-t3-bridge',title:'ZCode',version:'0.3.0'},authMethods:this.argv.includes('--legacy-grok')?[{id:'cached_token',name:'Existing ZCode Coding Plan'}]:authMethods,
         agentCapabilities:{loadSession:true,promptCapabilities:{image:true,audio:false,embeddedContext:true},mcpCapabilities:{http:true,sse:true},sessionCapabilities:{}},
-        _meta:{modelState:{currentModelId:defaultModel(),availableModels:models},availableCommands:[{name:'compact',description:'Compact the ZCode conversation'}]}};
+        _meta:{...(models.length?{modelState:{currentModelId:defaultModel(),availableModels:models}}:{}),availableCommands:[{name:'compact',description:'Compact the ZCode conversation'}]}};
     }
-    if(method==='authenticate') {defaultModel();return {};}
+    if(method==='authenticate') {
+      if(!['cached_token','terminal_setup'].includes(p.methodId)){const e=new Error('Unknown authentication method');e.code=-32602;throw e;}
+      requireAccount();return {};
+    }
     if(method==='session/new'||method==='session/load') {
       await this.startChild(p.cwd);
       const workspace={workspaceKey:p.cwd,workspacePath:p.cwd};
@@ -235,7 +253,7 @@ export class Bridge {
     createInterface({input:this.input}).on('line',line=>{
       let m;try{m=JSON.parse(line);}catch{this.emit({id:null,error:{code:-32700,message:'Invalid JSON'}});return;}
       if(m.method) {
-        void this.handle(m.method,m.params).then(result=>{if(m.id!==undefined)this.emit({id:m.id,result});},e=>{if(m.id!==undefined)this.emit({id:m.id,error:{code:e.code||-32603,message:e.message}});});
+        void this.handle(m.method,m.params).then(result=>{if(m.id!==undefined)this.emit({id:m.id,result});},e=>{if(m.id!==undefined)this.emit({id:m.id,error:{code:e.code||-32603,message:e.message,...(e.data?{data:e.data}:{})}});});
       } else if(m.id!==undefined){const p=this.clientPending.get(m.id);if(p){this.clientPending.delete(m.id);m.error?p.reject(new Error(m.error.message)):p.resolve(m.result);}}
     }).on('close',()=>this.close());
     process.on('SIGTERM',()=>this.close());process.on('SIGINT',()=>this.close());
@@ -245,9 +263,13 @@ if(process.argv[1] && import.meta.url===pathToFileURL(realpathSync(process.argv[
   const legacyGrok=process.argv.includes('--legacy-grok');
   const args=process.argv.slice(2).filter(a=>a!=='--legacy-grok');
   if(Number(process.versions.node.split('.')[0])<24){console.error('ZCode ACP bridge requires Node.js 24 or newer.');process.exit(1);}
-  if(args.includes('--version'))console.log(legacyGrok?'ZCode ACP bridge (legacy Grok compatibility probe)':'zcode-t3-bridge 0.2.0');
-  else if(args.includes('--bridge-version'))console.log('zcode-t3-bridge 0.2.0');
-  else if(args.includes('--help'))console.log('ZCode ACP bridge\n\nUsage: zcode-acp --acp\n       zcode-acp models\n       zcode-acp --version\n\nRequires Node.js 24+ and an installed, configured ZCode Desktop.\nSee README.md for setup and current limitations.');
+  if(args.includes('--version'))console.log(legacyGrok?'ZCode ACP bridge (legacy Grok compatibility probe)':'zcode-t3-bridge 0.3.0');
+  else if(args.includes('--bridge-version'))console.log('zcode-t3-bridge 0.3.0');
+  else if(args.includes('--setup')) {
+    try {if(!existsSync(builtinPath))throw new Error('ZCode builtin provider configuration is missing. Install ZCode Desktop or configure its resource paths.');await setup({path:bridgeAccountPath,connected:()=>accounts().found.length>0,cliPath});}
+    catch(e){console.error(e.message);process.exitCode=1;}
+  }
+  else if(args.includes('--help'))console.log('ZCode ACP bridge\n\nUsage: zcode-acp --setup\n       zcode-acp --acp\n       zcode-acp models\n       zcode-acp --version\n\nRequires Node.js 24+ and an installed, configured ZCode Desktop.\nSee README.md for setup and current limitations.');
   else if(args[0]==='models') {
     try{const models=modelCatalog();console.log(models.length?'You are logged in to ZCode.':'Not logged in to ZCode.');for(const m of models)console.log(`- ${m.modelId}${m.modelId===defaultModel()?' (default)':''}`);}catch{console.log('Not logged in to ZCode.');process.exitCode=1;}
   } else if(args[0]==='inspect')console.log(JSON.stringify({skills:[]}));

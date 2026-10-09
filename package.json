@@ -1,6 +1,6 @@
 {
   "name": "t3-zcode-bridge",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "test": "node --test",
@@ -17,6 +17,7 @@
   "files": [
     "bridge.mjs",
     "content.mjs",
+    "auth.mjs",
     "zcode-acp",
     "README.md",
     "UPSTREAM.md",

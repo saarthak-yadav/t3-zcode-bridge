@@ -38,7 +38,7 @@ test('generic and legacy version probes work through an executable symlink',asyn
  try {
   const executable=join(dir,'zcode-acp');await symlink(bridgePath.pathname,executable);
   const run=promisify(execFile);
-  assert.match((await run(process.execPath,[executable,'--version'])).stdout,/0\.2\.0/);
+  assert.match((await run(process.execPath,[executable,'--version'])).stdout,/0\.3\.0/);
   assert.match((await run(process.execPath,[executable,'--legacy-grok','--version'])).stdout,/legacy Grok/);
   assert.match((await run(process.execPath,[executable,'--help'])).stdout,/Usage:/);
  }finally{await rm(dir,{recursive:true,force:true});}

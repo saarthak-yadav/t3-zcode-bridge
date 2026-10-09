@@ -2,23 +2,24 @@
 
 An experimental community ACP v1 adapter for ZCode's native agent harness. It translates ACP JSON-RPC into ZCode's bundled `app-server --stdio` protocol, so T3 Code and other ACP clients can run ZCode's own agent, tools and GLM models.
 
-This project is independently maintained. It is not affiliated with or endorsed by Z.ai or T3 Code. Version **0.2.0** is a preview release, verified on macOS with **ZCode Desktop 3.14.4 / Agent CLI 0.16.9** and **T3 Code 0.0.45**. Other runtime versions and platforms are not verified.
+This project is independently maintained. It is not affiliated with or endorsed by Z.ai or T3 Code. Version **0.3.0** is an experimental release, verified on macOS with **ZCode Desktop 3.14.4 / Agent CLI 0.16.9** and **T3 Code 0.0.45**. Native sessions reject other CLI versions until they have been verified. Other runtime versions and platforms are not verified.
 
 ## Requirements
 
-- Node.js **24 or newer**, available on `PATH`.
+- Node.js **24 or newer**, available on `PATH` (also required for the registry archive).
 - ZCode Desktop installed. The default resource path is `/Applications/ZCode.app/Contents/Resources`.
-- An existing enabled Z.ai or BigModel Coding Plan API-key account in ZCode's legacy configuration (`~/.zcode/v2/config.json`). OAuth-only accounts are not supported by this preview. The bridge does not implement a new login flow.
+- A Z.ai or BigModel Coding Plan API key. Run `zcode-acp --setup` in an interactive terminal to configure it. Existing enabled API-key accounts in ZCode's legacy `~/.zcode/v2/config.json` also work. OAuth-only accounts are not supported.
 
-The bridge reads credentials from existing local account configuration on demand and sends them only through the native subprocess pipe. It does not copy them into T3 settings or modify ZCode's original account configuration. Native diagnostics are suppressed because they can contain request headers.
+Terminal setup hides key input and saves bridge-owned credentials with mode 0600 in `~/.zcode/v2/t3-bridge-account.json`; it does not overwrite ZCode account configuration. An existing account can be reused without copying its key. The first model request verifies the key with the provider. The bridge reads credentials from local account configuration on demand and sends them only through the native subprocess pipe. It does not copy them into T3 settings or modify ZCode's original account configuration. Native diagnostics are suppressed because they can contain request headers.
 
 ## Install
 
-Download the npm-format `.tgz` asset from the [v0.2.0 GitHub release](https://github.com/saarthak-yadav/t3-zcode-bridge/releases/tag/v0.2.0) and install that downloaded file:
+Download the npm-format `.tgz` asset from the [v0.3.0 GitHub release](https://github.com/saarthak-yadav/t3-zcode-bridge/releases/tag/v0.3.0) and install that downloaded file:
 
 ```sh
-npm install --global ./t3-zcode-bridge-0.2.0.tgz
+npm install --global ./t3-zcode-bridge-0.3.0.tgz
 zcode-acp --version
+zcode-acp --setup
 zcode-acp models
 ```
 
@@ -30,6 +31,7 @@ Alternatively, run from source:
 git clone https://github.com/saarthak-yadav/t3-zcode-bridge.git
 cd t3-zcode-bridge
 node bridge.mjs --version
+node bridge.mjs --setup
 node bridge.mjs models
 node bridge.mjs --acp
 ```
@@ -72,6 +74,7 @@ Binary resources without a native inline representation are saved with private p
 | `ZCODE_CLI_PATH` | Override bundled `zcode.cjs` path |
 | `ZCODE_BUILTIN_PROVIDER_CONFIG_FILE` | Override builtin provider configuration |
 | `ZCODE_DATA_BASE_DIR` | Base directory under which `.zcode/v2` is located; defaults to home |
+| `ZCODE_BRIDGE_CREDENTIALS_FILE` | Override the private bridge-owned credential file |
 | `ZCODE_BRIDGE_ACCOUNT_CONFIG` | Override legacy account configuration file |
 | `ZCODE_NODE_BINARY` | Absolute Node executable for the legacy shell launcher |
 
@@ -82,8 +85,8 @@ Binary resources without a native inline representation are saved with private p
 - Native conversation rollback, session listing/import, usage reporting and rich subagent lineage are not implemented.
 - Native skills/plugins load inside ZCode, but their catalog is not mirrored into T3's skills menu.
 - Official ZCode MCP services needing host-specific authentication are unsupported. Injected ordinary MCP transports are translated; live MCP integration has not been verified.
-- OAuth refresh and desktop-specific quota behavior are unverified. This preview relies on existing Coding Plan API-key configuration.
-- No automatic updates, supported-protocol version negotiation, or full transport line-size enforcement yet. Update ZCode separately, and expect compatibility to change with its private/native protocol.
+- OAuth refresh and desktop-specific quota behavior are unverified. This release uses Coding Plan API-key configuration.
+- No automatic updates or full transport line-size enforcement yet. Native CLI compatibility is restricted to the verified 0.16.9 version. Update ZCode separately, and expect compatibility to change with its private/native protocol.
 - `--version` reports the bridge version. Legacy Grok mode deliberately returns an unversioned label because T3's Grok version policy is unrelated to this bridge. `--bridge-version` always reports the actual version.
 
 ## Verification
@@ -94,7 +97,7 @@ npm run smoke
 npm run smoke:attachments
 ```
 
-Automated tests require no account, network or installed ZCode. CI runs them on macOS/Linux with Node 24/26; this checks the adapter's portable code, not ZCode runtime support on Linux.
+Thirteen automated tests require no account, network or installed ZCode. CI runs them on macOS/Linux with Node 24/26; this checks the adapter's portable code, not ZCode runtime support on Linux.
 
 The two smoke scripts require a configured ZCode installation, create temporary test workspaces and **consume model quota**. Verified live: streaming, process restart and remembered context, an approved Bash write, a denied Bash write with no file created, cancellation, and a real T3 thread returning `T3_ZCODE_OK`. Attachment checks identified a synthetic image's shapes/colors/number and extracted verification codes from a PDF, embedded text and a privately staged CSV.
 
